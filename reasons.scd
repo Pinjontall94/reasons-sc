@@ -1,4 +1,4 @@
-s.boot;
+s.boot; // start sound server
 
 (
 s.meter;
@@ -7,14 +7,20 @@ s.scope;
 )
 
 b = Buffer.readChannel(s, "/home/sammi/Downloads/Alicia/christina.wav", channels:[0]);
+
+// play the buffer
 b.play;
+
+// clear/stop the buffer
+b.free;
 
 b.numChannels;
 
 FreqScope.new;
 
+// Define synths/samplers for composition
 (
-{
+SynthDef(\granSynth, {
 	var sig;
 	sig = GrainBuf.ar(
 		2,
@@ -31,6 +37,7 @@ FreqScope.new;
 		-1,
 		512
 	);
-	sig = sig * 0.4;
-}.play
+}).add;
 )
+
+s.quit; //kill sound server;
