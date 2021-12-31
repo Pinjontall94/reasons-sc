@@ -50,46 +50,48 @@ SynthDef(\grnSynth, {
 }).add;
 )
 
-
-
-// [MAIN]===================================================================
+~sources = Bus.audio(s, 2);
+~resources = Bus.audio(s, 2);
 
 // Play
 (
 x = Synth.new(\grnSynth);
 )
 
-x.set(\grn_dur, 0.2);
-x.set(\grn_rate, 0.6);
-x.set(\postn_rand, 0.5);
-x.set(\mul, 0.3);
-
 // Stop
 x.free;
-
-// =========================================================================
-
 
 
 // MIDI Stuff
 
-MIDIClient.init;
 MIDIIn.connectAll;
 MIDIIn.disconnectAll;
+MIDIFunc.trace(true);
+MIDIFunc.trace(false);
 
 (
-MIDIdef.cc(\modwheel, {
-	arg val, num, chan, src;
+MIDIdef.cc(\fader1, {
+	arg val, num, chan;
 	[val, num, chan].postln;
-	x.set(\grn_dur, val.linlin(0,127,0.01,0.2));
-}, 1, 0);
-)
+	x.set(\grn_dur, val.linlin(0,127,0.05,0.2));
+}, 41).add;
 
-(
-MIDIdef.cc(\fader9, {
-	arg val, num, chan, src;
+MIDIdef.cc(\fader2, {
+	arg val, num, chan;
 	[val, num, chan].postln;
-	x.set(\postn_rand, val.linlin(0,127,0,1));
-}, 7, 0);
+	x.set(\grn_rate, val.linlin(0,127,0,1));
+}, 42).add;
+
+MIDIdef.cc(\fader3, {
+	arg val, num, chan;
+	[val, num].postln;
+	x.set(\dens, val.linlin(0,127,50,300));
+}, 43).add;
+
+MIDIdef.cc(\fader4, {
+	arg val, num, chan;
+	[val, num].postln;
+	x.set(\postn_rand, val.linlin(0,127,0.01,1));
+}, 44).add;
 )
 
