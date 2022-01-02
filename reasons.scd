@@ -19,26 +19,32 @@ MIDIFunc.trace(false);
 MIDIdef.cc(\fader1, {
 	arg val, num, chan;
 	[val, num, chan].postln;
-	x.set(\grn_dur, val.linlin(0,127,0.05,0.2));
+	~gs.set(\grn_dur, val.linlin(0,127,0.05,0.2));
 }, 41).add;
 
 MIDIdef.cc(\fader2, {
 	arg val, num, chan;
 	[val, num, chan].postln;
-	x.set(\grn_rate, val.linlin(0,127,0,1));
+	~gs.set(\grn_rate, val.linlin(0,127,0,1));
 }, 42).add;
 
 MIDIdef.cc(\fader3, {
 	arg val, num, chan;
 	[val, num].postln;
-	x.set(\dens, val.linlin(0,127,50,300));
+	~gs.set(\dens, val.linlin(0,127,50,300));
 }, 43).add;
 
 MIDIdef.cc(\fader4, {
 	arg val, num, chan;
 	[val, num].postln;
-	x.set(\postn_rand, val.linlin(0,127,0.01,1));
+	~gs.set(\postn_rand, val.linlin(0,127,0.01,1));
 }, 44).add;
+
+MIDIdef.cc(\fader5, {
+	arg val, num, chan;
+	[val, num].postln;
+	~srr.set(\rate, val.linlin(0,127,400,4000));
+}, 45).add;
 )
 
 // Read wav file to buffer 'b'
@@ -98,8 +104,40 @@ SynthDef(\gs, {
 
 // FX Section
 (
+SynthDef(\srr, {
+	arg out=0, in, rate=20000;
+	var sig, srr;
+	sig = In.ar(in, 2);
+	srr = Latch.ar(sig, Impulse.ar(rate));
+	Out.ar(out, srr);
+}).add;
+
+SynthDef(\bp, {
+	arg out=0, in, freq=440, rq=1, mul=1;
+	var sig, filter;
+	sig = In.ar(in, 2);
+	filter = BPF.ar(sig, freq, rq, (1 / rq)) * mul;
+	Out.ar(out, filter);
+}).add;
+
+SynthDef(\dist, {
+	arg out=0, in, amp=100, mul=1;
+	var sig;
+	sig = In.ar(in, 2) * amp;
+	sig = sig.tanh / amp * mul;
+	Out.ar(out, sig);
+}).add;
+
+SynthDef(\folder, {
+	arg out=0, in, amp=100, mul=1;
+	var sig;
+	sig = In.ar(in, 2) * amp;
+	sig = sig.fold2 / amp * mul;
+	Out.ar(out, sig);
+}).add;
+
 SynthDef(\del, {
-	arg out=0, in, deltime=0.3, mix=(-0.5), amp=1, rate=0.3, hzMin=0.1,
+	arg out=0, in, mix=(-0.5), amp=1, rate=0.3, hzMin=0.1,
 	hzMax=0.4;
 	var sig, del;
 	sig = In.ar(in, 2) * amp;
@@ -121,20 +159,20 @@ SynthDef(\reverb, {
 }).add;
 )
 
-// Dedicated private audio busses (i.e. cables between each synth)
-(
-~delBus = Bus.audio(s, 2);
-~verbBus = Bus.audio(s, 2);
-)
-
-// Organize Synths into groups for easier management
-(
-~playbackGrp = Group.new;
-~fxGrp = Group.after(~playbackGrp);
-)
-
 // Create & play new synths in their dedicated groups, using dedicated busses
 (
+~bp.free;
+~bp = Synth.new(\bp, [\out, 0, \in, ~bpBus], ~fxGrp);
+
+~dist.free;
+~dist = Synth.new(\dist, [\out, 0, \in, ~distBus], ~fxGrp);
+
+~folder.free;
+~folder = Synth.new(\folder, [\out, ~verbBus, \in, ~folderBus], ~fxGrp);
+
+~srr.free;
+~srr = Synth.new(\srr, [\out, ~verbBus, \in, ~srrBus, \rate, 40000], ~fxGrp);
+
 ~verb.free;
 ~verb = Synth.new(
 	\reverb,
@@ -155,7 +193,9 @@ SynthDef(\reverb, {
 	[
 		\out, ~verbBus,
 		\in, ~delBus,
-		\deltime, 0.5,
+		\rate, 0.3,
+		\hzMin, 0.1,
+		\hzMax, 0.15,
 		\mix, (1), // -1 = sig, 1 = del
 		\amp, 1
 	],
@@ -163,12 +203,13 @@ SynthDef(\reverb, {
 );
 )
 
-(
-~gsFX = Synth.new(\gs, [\out, ~delBus], ~playbackGrp);
+
+~gsFX = Synth.new(\gs, [\out, ~bpBus], ~playbackGrp);
 ~gsDirect = Synth.new(\gs, [\out, 0], ~playbackGrp);
-~testFX = Synth.new(\test, [\out, ~delBus], ~fxGrp);
+~testFX = Synth.new(\test, [\out, ~bpBus], ~fxGrp);
 ~testDirect = Synth.new(\test, [\out, 0], ~playbackGrp);
-)
+
+~bp.set(\freq, 2000);
 
 // Stop test tones
 (
@@ -177,3 +218,23 @@ SynthDef(\reverb, {
 ~gsFX.free;
 ~gsDirect.free;
 )
+
+// Dedicated private audio busses (i.e. cables between each synth)
+(
+~bpBus = Bus.audio(s, 2);
+~srrBus = Bus.audio(s, 2);
+~distBus = Bus.audio(s, 2);
+~folderBus = Bus.audio(s, 2);
+~delBus = Bus.audio(s, 2);
+~verbBus = Bus.audio(s, 2);
+)
+
+// Organize Synths into groups for easier management
+(
+~playbackGrp.free;
+~playbackGrp = Group.new;
+~fxGrp.free;
+~fxGrp = Group.after(~playbackGrp);
+)
+
+~srr.set(\rate, 8000);
