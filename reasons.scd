@@ -99,13 +99,14 @@ SynthDef(\gs, {
 // FX Section
 (
 SynthDef(\del, {
-	arg out=0, in, deltime=0.3, mix=(-0.5), amp=1; //decay=3
+	arg out=0, in, deltime=0.3, mix=(-0.5), amp=1, rate=0.3, hzMin=0.1,
+	hzMax=0.4;
 	var sig, del;
 	sig = In.ar(in, 2) * amp;
 	del = DelayL.ar(
 		sig[0,1],
 		0.5,
-		deltime,
+		SinOsc.kr(rate).exprange(hzMin, hzMax),
 	);
 	sig = XFade2.ar(sig, del, mix);
 	Out.ar(out, sig);
@@ -142,7 +143,8 @@ SynthDef(\reverb, {
 		\in, ~verbBus,
 		\mix, 0.5,
 		\room, 0.8,
-		\damp, 0.5
+		\damp, 0.5,
+		\mul, 0.5
 	],
 	~fxGrp
 );
@@ -154,7 +156,7 @@ SynthDef(\reverb, {
 		\out, ~verbBus,
 		\in, ~delBus,
 		\deltime, 0.5,
-		\mix, (-0.5),
+		\mix, (1), // -1 = sig, 1 = del
 		\amp, 1
 	],
 	~fxGrp
@@ -162,7 +164,7 @@ SynthDef(\reverb, {
 )
 
 (
-~gsFX = Synth.new(\gs, [\out, ~verbBus], ~playbackGrp);
+~gsFX = Synth.new(\gs, [\out, ~delBus], ~playbackGrp);
 ~gsDirect = Synth.new(\gs, [\out, 0], ~playbackGrp);
 ~testFX = Synth.new(\test, [\out, ~delBus], ~fxGrp);
 ~testDirect = Synth.new(\test, [\out, 0], ~playbackGrp);
